@@ -1,79 +1,54 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Open Sans', sans-serif;
-}
+import streamlit as st
+import requests
+import os
+from dotenv import load_dotenv
 
-body {
-  background: #1bace5da;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
+load_dotenv()
 
-.profile-container {
-  text-align: center;
-  width: 350px;
-}
+CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
+CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+REDIRECT_URI = "http://localhost:8501"
 
-.avatar img {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  border: 5px solid #ffffff;
-  margin-bottom: -50px;
-  z-index: 2;
-  position: relative;
-  object-fit: cover;
-}
+def get_access_token(code):
+    url = "https://github.com/login/oauth/access_token"
+    headers = {"Accept": "application/json"}
+    data = {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+    }
+    response = requests.post(url, headers=headers, data=data)
+    return response.json().get("access_token")
 
-.form-container {
-  background-color: #6bb3e4;
-  padding: 60px 30px 30px;
-  border-radius: 3px;
-  position: relative;
-  box-shadow: 0 0 10px rgba(0,0,0,0.3);
-}
+def get_user_info(token):
+    url = "https://api.github.com/user"
+    headers = {"Authorization": f"token {token}"}
+    response = requests.get(url, headers=headers)
+    return response.json()
 
-h2 {
-  color: #fdffff;
-  font-size: 18px;
-  margin-bottom: 20px;
-}
+def main():
+    st.set_page_config(page_title="GitHub Login", page_icon="🔒")
+    st.title("🔐 Login with GitHub")
 
-.input-group {
-  margin-bottom: 15px;
-}
+    query_params = st.experimental_get_query_params()
 
-.input-group input {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  background: #ecf4f492;
-  color: #333;
-  font-size: 14px;
-  border-radius: 3px;
-}
+    if "code" in query_params:
+        code = query_params["code"][0]
+        token = get_access_token(code)
+        if token:
+            user = get_user_info(token)
+            st.success(f"✅ Logged in as {user['login']}")
+            st.image(user['avatar_url'], width=100)
+            st.write("👤 Name:", user.get("name", "Not available"))
+            st.write("📧 Email:", user.get("email", "Not available"))
+        else:
+            st.error("⚠️ Failed to retrieve access token.")
+    else:
+        github_auth_url = (
+            f"https://github.com/login/oauth/authorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}"
+        )
+        st.markdown(f"[🔗 Click here to login with GitHub]({github_auth_url})")
 
-button {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  background-color: #5be6dd;
-  color: #fff;
-  font-size: 16px;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-button:hover {
-  background-color: #3fc3c3;
-}
-
-footer {
-  margin-top: 15px;
-  font-size: 11px;
-  color: #eee;
-}
+if __name__ == "__main__":
+    main()
